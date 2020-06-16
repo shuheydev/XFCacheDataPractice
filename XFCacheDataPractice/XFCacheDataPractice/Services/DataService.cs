@@ -22,17 +22,26 @@ namespace XFCacheDataPractice.Services
 
         public Covid19JapanApiManager()
         {
+            //HttpClientの生成
+            //Covid19JapanApiManagerクラスはDependencyService経由でインスタンスを取得するので
+            //1回しか生成されないので大丈夫.
             this._httpClient = new HttpClient
             {
                 BaseAddress = new Uri("https://covid19-japan-web-api.now.sh/api/v1/")
             };
 
+            //MonkeyCacheの初期化
             Barrel.ApplicationId = AppInfo.PackageName;
             this._barrel = Barrel.Create(FileSystem.AppDataDirectory);
         }
 
+        //県別のデータをMonkeyCacheに格納,取得する際のキー
         public const string CachePrefecturesKey = "get_prefectures";
 
+        /// <summary>
+        /// WebAPIから県別のデータを取得する.
+        /// </summary>
+        /// <returns></returns>
         public async Task<IEnumerable<Prefecture>> GetPrefectures()
         {
             try
@@ -47,18 +56,20 @@ namespace XFCacheDataPractice.Services
                 //インターネットに接続してれば取得
                 if (Connectivity.NetworkAccess == NetworkAccess.Internet)
                 {
+                    //WebAPIからデータ取得
                     var prefecturesData = await _httpClient.GetFromJsonAsync<IEnumerable<Prefecture>>("prefectures");
 
-                    //キャッシュを更新
+                    //キャッシュを更新.キャッシュの有効期限を設定
                     _barrel.Add(key: CachePrefecturesKey, data: prefecturesData, expireIn: TimeSpan.FromMinutes(10));
 
                     return prefecturesData;
                 }
 
                 //インターネットにも接続してないし,キャッシュも有効期限切れだった場合
-                //それでもキャッシュデータがあれば返すか?
+                //それでも有効期限切れのキャッシュデータを返すか.
                 if (_barrel.Exists(key: CachePrefecturesKey))
                 {
+                    //とりあえず返すことにした.
                     return _barrel.Get<IEnumerable<Prefecture>>(key: CachePrefecturesKey);
                 }
 
